@@ -17,6 +17,15 @@ void toggleLED(void *parameter){
   }
 }
 
+void toggleLEDfast(void *parameter){
+  while(1) {
+    digitalWrite(led_pin, HIGH);
+    vTaskDelay(200 / portTICK_PERIOD_MS);
+    digitalWrite(led_pin, LOW);
+    vTaskDelay(200 / portTICK_PERIOD_MS);
+  }
+}
+
 void setup() {
   pinMode(led_pin, OUTPUT);
 
@@ -29,6 +38,17 @@ void setup() {
     NULL,
     app_cpu
   );
+
+  xTaskCreatePinnedToCore(
+    toggleLEDfast,
+    "Blink LED 400ms",
+    1024,
+    NULL,
+    1,
+    NULL,
+    app_cpu
+  );
+
 }
 
 void loop() {
