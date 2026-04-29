@@ -18,8 +18,8 @@ void echoSerialLCD(void *parameter){
       current_char = Serial.read();
       Serial.print(current_char);
       digitalWrite(led_pin, HIGH);
+      xTimerStart(backlight_timer, portMAX_DELAY);
     }
-    digitalWrite(led_pin,LOW);
   }
 }
 
@@ -42,6 +42,20 @@ void setup() {
     NULL,
     app_cpu
   );
+
+  backlight_timer = xTimerCreate(
+    "LCD fadeout",
+    backlight_timeout / portTICK_PERIOD_MS,
+    pdFALSE,
+    (void*) 0,
+    LCDbacklightDelay
+  );
+
+  if(backlight_timer == NULL){
+    Serial.println("Could not create timer");
+  }else{
+    xTimerStart(backlight_timer, portMAX_DELAY);
+  }
 }
 
 void loop() {
