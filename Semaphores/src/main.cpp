@@ -28,16 +28,19 @@ typedef struct Message {
 } Message;
 
 static SemaphoreHandle_t counting_semaphore; // use this to stop setup to free stack variable before it is copied by tasks
+static SemaphoreHandle_t mutex; // mutex for the serial print function;
 
 void printTask(void *parameter){
   
   Message local_message = *(Message *) parameter;
   xSemaphoreTake(counting_semaphore, 0);
-
-  Serial.print("Received: ");
-  Serial.print(local_message.body);
-  Serial.print(" length: ");
-  Serial.println(local_message.length);
+  if(xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE){
+    Serial.print("Received: ");
+    Serial.print(local_message.body);
+    Serial.print(" length: ");
+    Serial.println(local_message.length);
+    xSemaphoreGive(mutex);
+  }
 
   vTaskDelay(1000/portTICK_PERIOD_MS);
   vTaskDelete(NULL);
@@ -58,6 +61,7 @@ void setup() {
   parent_message.length = strlen(text);
 
   counting_semaphore = xSemaphoreCreateCounting(num_tasks, 0);
+  mutex = xSemaphoreCreateMutex();
 
   for(int i = 0; i < num_tasks; i++) {
     sprintf(task_name, "Task_%i", i);
