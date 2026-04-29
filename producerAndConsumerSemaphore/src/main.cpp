@@ -38,6 +38,9 @@ static int head = 0;                  // Writing index to buffer
 static int tail = 0;                  // Reading index to buffer
 static SemaphoreHandle_t bin_sem;     // Waits for parameter to be read
 
+// we shall use two counting semaphores and one mutex.
+static SemaphoreHandle_t serial_mutex; // mutex to protect serial from concurrent use
+
 //*****************************************************************************
 // Tasks
 
@@ -73,7 +76,10 @@ void consumer(void *parameters) {
     // Critical section (accessing shared buffer and Serial)
     val = buf[tail];
     tail = (tail + 1) % BUF_SIZE;
-    Serial.println(val);
+    if(xSemaphoreTake(serial_mutex, portMAX_DELAY) == pdTRUE){
+      Serial.println(val);
+      xSemaphoreGive(serial_mutex);
+    }
   }
 }
 
@@ -94,6 +100,7 @@ void setup() {
 
   // Create mutexes and semaphores before starting tasks
   bin_sem = xSemaphoreCreateBinary();
+  serial_mutex = xSemaphoreCreateMutex();
 
   // Start producer tasks (wait for each to read argument)
   for (int i = 0; i < num_prod_tasks; i++) {
