@@ -6,16 +6,22 @@ static const BaseType_t app_cpu = 1;
 #endif
 
 static int shared_counter = 0;
+static SemaphoreHandle_t mutex;
 
 void incrementCounter(void *parameter){
   int local_counter;
   while(1) {
-    local_counter = shared_counter;
-    local_counter++;
-    vTaskDelay(random(100,400)/portTICK_PERIOD_MS);
-    shared_counter = local_counter;
-
-    Serial.println(shared_counter);
+    if(xSemaphoreTake(mutex,0) == pdTRUE){
+      local_counter = shared_counter;
+      local_counter++;
+      vTaskDelay(random(100,400)/portTICK_PERIOD_MS);
+      shared_counter = local_counter;
+      
+      xSemaphoreGive(mutex);
+      Serial.println(shared_counter);
+    }
+    else{
+    }
   }
 }
 
@@ -25,6 +31,8 @@ void setup() {
   vTaskDelay(1000/portTICK_PERIOD_MS);
 
   Serial.println("Race condition demo");
+
+  mutex = xSemaphoreCreateMutex();
 
   xTaskCreatePinnedToCore(
     incrementCounter,
