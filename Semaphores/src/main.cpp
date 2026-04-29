@@ -20,75 +20,66 @@
   static const BaseType_t app_cpu = 1;
 #endif
 
-// Pins (change this if your Arduino board does not have LED_BUILTIN defined)
-static const int led_pin = GPIO_NUM_23;
+static const int num_tasks = 5;
 
-static SemaphoreHandle_t binary_semaphore;
+typedef struct Message {
+  char body[30];
+  uint8_t length;
+} Message;
 
-//*****************************************************************************
-// Tasks
+static SemaphoreHandle_t counting_semaphore; // use this to stop setup to free stack variable before it is copied by tasks
 
-// Blink LED based on rate passed by parameter
-void blinkLED(void *parameters) {
+void printTask(void *parameter){
   
-  xSemaphoreGive(binary_semaphore);
-  // Copy the parameter into a local variable
-  int num = *(int *)parameters;
-  // Print the parameter
+  Message local_message = *(Message *) parameter;
+  xSemaphoreTake(counting_semaphore, 0);
+
   Serial.print("Received: ");
-  Serial.println(num);
+  Serial.print(local_message.body);
+  Serial.print(" length: ");
+  Serial.println(local_message.length);
 
-  // Configure the LED pin
-  pinMode(led_pin, OUTPUT);
-
-  // Blink forever and ever
-  while (1) {
-    digitalWrite(led_pin, HIGH);
-    vTaskDelay(num / portTICK_PERIOD_MS);
-    digitalWrite(led_pin, LOW);
-    vTaskDelay(num / portTICK_PERIOD_MS);
-  }
+  vTaskDelay(1000/portTICK_PERIOD_MS);
+  vTaskDelete(NULL);
 }
 
 //*****************************************************************************
 // Main (runs as its own task with priority 1 on core 1)
 
 void setup() {
-
-  long int delay_arg;
-  binary_semaphore = xSemaphoreCreateBinary();
-
-  // Configure Serial
   Serial.begin(115200);
+  vTaskDelay(3000/portTICK_PERIOD_MS);
 
-  // Wait a moment to start (so we don't miss Serial output)
-  vTaskDelay(1000 / portTICK_PERIOD_MS);
-  Serial.println();
-  Serial.println("---FreeRTOS Mutex Challenge---");
-  Serial.println("Enter a number for delay (milliseconds)");
+  char task_name[] = "";
 
-  // Wait for input from Serial
-  while (Serial.available() <= 0);
+  char text[] = "I am an important string";
+  Message parent_message;
+  strcpy(parent_message.body, text);
+  parent_message.length = strlen(text);
 
-  // Read integer value
-  delay_arg = Serial.parseInt();
-  Serial.print("Sending: ");
-  Serial.println(delay_arg);
+  counting_semaphore = xSemaphoreCreateCounting(num_tasks, 0);
+
+  for(int i = 0; i < num_tasks; i++) {
+    sprintf(task_name, "Task_%i", i);
+    xTaskCreatePinnedToCore(printTask,
+                            task_name,
+                            1024,
+                            (void *)&parent_message,
+                            1,
+                            NULL,
+                            app_cpu);
+
+
+  }
 
   // Start task 1
-  xTaskCreatePinnedToCore(blinkLED,
-                          "Blink LED",
-                          1024,
-                          (void *)&delay_arg,
-                          1,
-                          NULL,
-                          app_cpu);
 
   vTaskDelay(portTICK_PERIOD_MS); // wait a single tick to make sure the other task actually gets the mutex.
-
-  xSemaphoreTake(binary_semaphore,portMAX_DELAY); // wait as long as possible for the release of the mutex
+  for(int i = 0; i < num_tasks; i++){
+    xSemaphoreTake(counting_semaphore,portMAX_DELAY); // wait for all five tasks by taking the semaphore.
+  }
   // Show that we accomplished our task of passing the stack-based argument
-  Serial.println("Done!");
+  Serial.println("All tasks done!");
 }
 
 void loop() {
