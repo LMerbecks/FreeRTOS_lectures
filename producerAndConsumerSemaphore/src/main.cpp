@@ -39,8 +39,9 @@ static int tail = 0;                  // Reading index to buffer
 static SemaphoreHandle_t bin_sem;     // Waits for parameter to be read
 
 // we shall use two counting semaphores and one mutex.
-static SemaphoreHandle_t serial_mutex; // mutex to protect serial from concurrent use
-
+static SemaphoreHandle_t buffer_mutex; // mutex to protect serial from concurrent use
+static SemaphoreHandle_t empty_slots; // semaphore to count empty slots
+static SemaphoreHandle_t filled_slots; // semaphore to count full slots
 //*****************************************************************************
 // Tasks
 
@@ -55,10 +56,15 @@ void producer(void *parameters) {
 
   // Fill shared buffer with task number
   for (int i = 0; i < num_writes; i++) {
-
+    xSemaphoreTake(empty_slots, portMAX_DELAY);
+    
     // Critical section (accessing shared buffer)
+    xSemaphoreTake(buffer_mutex,portMAX_DELAY);
     buf[head] = num;
     head = (head + 1) % BUF_SIZE;
+    xSemaphoreGive(buffer_mutex);
+
+    xSemaphoreGive(filled_slots);
   }
 
   // Delete self task
@@ -72,14 +78,15 @@ void consumer(void *parameters) {
 
   // Read from buffer
   while (1) {
-
+    xSemaphoreTake(filled_slots,portMAX_DELAY);
     // Critical section (accessing shared buffer and Serial)
-    val = buf[tail];
-    tail = (tail + 1) % BUF_SIZE;
-    if(xSemaphoreTake(serial_mutex, portMAX_DELAY) == pdTRUE){
+    if(xSemaphoreTake(buffer_mutex, portMAX_DELAY) == pdTRUE){
+      val = buf[tail];
+      tail = (tail + 1) % BUF_SIZE;
       Serial.println(val);
-      xSemaphoreGive(serial_mutex);
+      xSemaphoreGive(buffer_mutex);
     }
+    xSemaphoreGive(empty_slots);
   }
 }
 
@@ -100,7 +107,9 @@ void setup() {
 
   // Create mutexes and semaphores before starting tasks
   bin_sem = xSemaphoreCreateBinary();
-  serial_mutex = xSemaphoreCreateMutex();
+  buffer_mutex = xSemaphoreCreateMutex();
+  empty_slots = xSemaphoreCreateCounting(BUF_SIZE, BUF_SIZE);
+  filled_slots = xSemaphoreCreateCounting(BUF_SIZE,0);
 
   // Start producer tasks (wait for each to read argument)
   for (int i = 0; i < num_prod_tasks; i++) {
