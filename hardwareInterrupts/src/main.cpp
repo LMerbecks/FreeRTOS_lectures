@@ -9,7 +9,7 @@ static const uint16_t time_divider = 80; // timer runs at 10MHz now
 static const uint64_t time_period = 1000000; 
 static const TickType_t task_delay = 1000 / portTICK_PERIOD_MS;
 
-static const int analog_pin = A0;
+static const int analog_pin = A6;
 
 static hw_timer_t *timer = NULL;
 static volatile uint16_t analog_val;
