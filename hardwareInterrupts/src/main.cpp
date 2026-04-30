@@ -5,29 +5,31 @@ static const BaseType_t app_cpu = 0;
 static const BaseType_t app_cpu = 1;
 #endif
 
-static const uint16_t time_divider = 8; // timer runs at 10MHz now
+static const uint16_t time_divider = 80; // timer runs at 10MHz now
 static const uint64_t time_period = 1000000; 
 static const TickType_t task_delay = 1000 / portTICK_PERIOD_MS;
 
+static const int analog_pin = A0;
+
 static hw_timer_t *timer = NULL;
-static volatile int isr_counter = 0;
-static portMUX_TYPE spinlock = portMUX_INITIALIZER_UNLOCKED;
+static volatile uint16_t analog_val;
+static SemaphoreHandle_t analog_read_semaphore = NULL;
 
 void IRAM_ATTR onTimer(){
-  portENTER_CRITICAL_ISR(&spinlock);
-  isr_counter++;
-  portEXIT_CRITICAL_ISR(&spinlock);
+  BaseType_t task_woken = pdFALSE;
+  analog_val = analogRead(analog_pin);
+
+  xSemaphoreGiveFromISR(analog_read_semaphore, &task_woken);
+
+  if(task_woken){
+    portYIELD_FROM_ISR();
+  }
 }
 
 void printValue(void *parameter){
   while(1){
-    while(isr_counter > 0){
-      Serial.println(isr_counter);
-      portENTER_CRITICAL(&spinlock);
-      isr_counter--;
-      portEXIT_CRITICAL(&spinlock);
-    }
-    vTaskDelay(task_delay);
+    xSemaphoreTake(analog_read_semaphore, portMAX_DELAY);
+    Serial.println(analog_val);
   }
 
 }
@@ -36,6 +38,13 @@ void setup() {
   Serial.begin(115200);
   vTaskDelay(1000/portTICK_PERIOD_MS);
   Serial.println("Timer interrupt demo");
+
+  analog_read_semaphore = xSemaphoreCreateBinary();
+
+  if(analog_read_semaphore == NULL){
+    Serial.println("Could not initialize semaphore");
+    ESP.restart();
+  }
 
   xTaskCreatePinnedToCore(
     printValue,
