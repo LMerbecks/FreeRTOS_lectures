@@ -37,39 +37,44 @@ static SemaphoreHandle_t chopstick[NUM_TASKS];
 // The only task: eating
 void eat(void *parameters) {
 
-  int num;
+  int task_number;
   char buf[50];
 
   // Copy parameter and increment semaphore count
-  num = *(int *)parameters;
+  task_number = *(int *)parameters;
   xSemaphoreGive(bin_sem);
+  int left_chopstick_index = task_number;
+  int right_chopstick_index = (task_number + 1)%NUM_TASKS;
 
-  // Take left chopstick
-  xSemaphoreTake(chopstick[num], portMAX_DELAY);
-  sprintf(buf, "Philosopher %i took chopstick %i", num, num);
+  int max_chopstick_index = max(left_chopstick_index, right_chopstick_index);
+  int min_chopstick_index = min(left_chopstick_index, right_chopstick_index);
+
+  // Take lowest index chopstick
+  xSemaphoreTake(chopstick[min_chopstick_index], portMAX_DELAY);
+  sprintf(buf, "Philosopher %i took chopstick %i", task_number, task_number);
   Serial.println(buf);
 
   // Add some delay to force deadlock
   vTaskDelay(1 / portTICK_PERIOD_MS);
 
-  // Take right chopstick
-  xSemaphoreTake(chopstick[(num+1)%NUM_TASKS], portMAX_DELAY);
-  sprintf(buf, "Philosopher %i took chopstick %i", num, (num+1)%NUM_TASKS);
+  // Take highest index chopstick
+  xSemaphoreTake(chopstick[max_chopstick_index], portMAX_DELAY);
+  sprintf(buf, "Philosopher %i took chopstick %i", task_number, (task_number+1)%NUM_TASKS);
   Serial.println(buf);
 
   // Do some eating
-  sprintf(buf, "Philosopher %i is eating", num);
+  sprintf(buf, "Philosopher %i is eating", task_number);
   Serial.println(buf);
   vTaskDelay(10 / portTICK_PERIOD_MS);
 
-  // Put down right chopstick
-  xSemaphoreGive(chopstick[(num+1)%NUM_TASKS]);
-  sprintf(buf, "Philosopher %i returned chopstick %i", num, (num+1)%NUM_TASKS);
+  // Put down max index chopstick
+  xSemaphoreGive(chopstick[max_chopstick_index]);
+  sprintf(buf, "Philosopher %i returned chopstick %i", task_number, (task_number+1)%NUM_TASKS);
   Serial.println(buf);
 
-  // Put down left chopstick
-  xSemaphoreGive(chopstick[num]);
-  sprintf(buf, "Philosopher %i returned chopstick %i", num, num);
+  // Put down min index chopstick
+  xSemaphoreGive(chopstick[min_chopstick_index]);
+  sprintf(buf, "Philosopher %i returned chopstick %i", task_number, task_number);
   Serial.println(buf);
 
   // Notify main task and delete self
