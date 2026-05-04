@@ -35,7 +35,7 @@ void doTaskA(void *parameters) {
     // Take mutex 1 (introduce wait to force deadlock)
     xSemaphoreTake(mutex_1, portMAX_DELAY);
     Serial.println("Task A took mutex 1");
-    vTaskDelay(1 / portTICK_PERIOD_MS);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 
     // Take mutex 2
     xSemaphoreTake(mutex_2, portMAX_DELAY);
@@ -64,7 +64,7 @@ void doTaskB(void *parameters) {
     // Take mutex 2 (introduce wait to force deadlock)
     xSemaphoreTake(mutex_2, portMAX_DELAY);
     Serial.println("Task B took mutex 2");
-    vTaskDelay(1 / portTICK_PERIOD_MS);
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 
     // Take mutex 1
     xSemaphoreTake(mutex_1, portMAX_DELAY);
