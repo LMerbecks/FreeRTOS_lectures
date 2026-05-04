@@ -35,29 +35,23 @@ void doTaskA(void *parameters) {
   while (1) {
 
     // Take mutex 1 (introduce wait to force deadlock)
-    if(xSemaphoreTake(mutex_1, mutex_timeout) == pdTRUE){
+    xSemaphoreTake(mutex_1, mutex_timeout);
 
-      Serial.println("Task A took mutex 1");
-      vTaskDelay(10 / portTICK_PERIOD_MS);
-  
-      // Take mutex 2
-      if(xSemaphoreTake(mutex_2, mutex_timeout) == pdTRUE){
-        Serial.println("Task A took mutex 2");
-    
-        // Critical section protected by 2 mutexes
-        Serial.println("Task A doing some work");
-        vTaskDelay(500 / portTICK_PERIOD_MS);
-        xSemaphoreGive(mutex_2);
-    
-      }else{
-        Serial.println("TaskA timed out waiting for mutex 2");
-      }
-    }else{
-      Serial.println("TaskA timed out waiting for mutex 1"); 
-    }
-    xSemaphoreGive(mutex_1);
+    Serial.println("Task A took mutex 1");
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 
+    // Take mutex 2
+    xSemaphoreTake(mutex_2, mutex_timeout);
+    Serial.println("Task A took mutex 2");
+
+    // Critical section protected by 2 mutexes
+    Serial.println("Task A doing some work");
+    vTaskDelay(500 / portTICK_PERIOD_MS);
+    
+    
     // Give back mutexes
+    xSemaphoreGive(mutex_2);
+    xSemaphoreGive(mutex_1);
 
     // Wait to let the other task execute
     Serial.println("Task A going to sleep");
@@ -72,31 +66,26 @@ void doTaskB(void *parameters) {
   while (1) {
 
     // Take mutex 2 (introduce wait to force deadlock)
-    if(xSemaphoreTake(mutex_2, mutex_timeout) == pdTRUE){
+    xSemaphoreTake(mutex_1, mutex_timeout);
 
-      Serial.println("Task B took mutex 2");
-      vTaskDelay(10 / portTICK_PERIOD_MS);
+    Serial.println("Task B took mutex 2");
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 
-      // Take mutex 1
-      if(xSemaphoreTake(mutex_1, mutex_timeout) == pdTRUE){
-        Serial.println("Task B took mutex 1");
-  
-        // Critical section protected by 2 mutexes
-        Serial.println("Task B doing some work");
-        vTaskDelay(500 / portTICK_PERIOD_MS);
-        
-        xSemaphoreGive(mutex_2);
-      }else{
-        Serial.println("TaskB timed out waiting for mutex 1");
-      }
-    }else{
-      Serial.println("TaskB timed out waiting for mutex 2");
-    }
+    // Take mutex 1
+    xSemaphoreTake(mutex_2, mutex_timeout);
+    Serial.println("Task B took mutex 1");
+
+    // Critical section protected by 2 mutexes
+    Serial.println("Task B doing some work");
+    vTaskDelay(500 / portTICK_PERIOD_MS);
+
+
     // Give back mutexes
+    xSemaphoreGive(mutex_2);
     xSemaphoreGive(mutex_1);
     
     // Wait to let the other task execute
-    Serial.println("Task A going to sleep");
+    Serial.println("Task B going to sleep");
     vTaskDelay(500 / portTICK_PERIOD_MS);
   }
 }
